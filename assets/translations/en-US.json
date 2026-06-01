@@ -1,0 +1,114 @@
+{
+  "app_title": "RetroScrape Modern",
+  "language": {
+    "change": "Change language"
+  },
+  "action": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "export": "Export",
+    "rescan": "Rescan",
+    "save": "Save",
+    "save_options": "Save options",
+    "start_scraping": "Start scraping"
+  },
+  "settings": {
+    "title": "Settings",
+    "saved": "Settings saved",
+    "user": "ScreenScraper user",
+    "password": "ScreenScraper password"
+  },
+  "library": {
+    "title": "1. Library",
+    "choose_folder": "Choose ROM folder",
+    "change_folder": "Change folder",
+    "choose_to_start": "Choose a folder to start"
+  },
+  "systems": {
+    "title": "Systems",
+    "all": "All",
+    "add": "Add system",
+    "to_scrape": "Systems to scrape",
+    "none_detected": "No systems detected yet"
+  },
+  "output": {
+    "title": "2. Output"
+  },
+  "roms": {
+    "detected": "Detected ROMs"
+  },
+  "tab": {
+    "metadata": "Metadata",
+    "media": "Media",
+    "gamelist": "Gamelist",
+    "preview": "Preview"
+  },
+  "metadata": {
+    "text_case": "Text case",
+    "name": "Name",
+    "description": "Description",
+    "genre": "Genre",
+    "move_articles": "Move articles to the end",
+    "use_region": "Use region in name when available",
+    "keep_decorations": "Keep name decorations",
+    "keep_undecorated": "Keep undecorated base name",
+    "include_synopsis": "Include synopsis in gamelist"
+  },
+  "case": {
+    "as_is": "As is",
+    "lower": "lower",
+    "upper": "UPPER"
+  },
+  "media": {
+    "downloaded": "Downloaded media",
+    "mix": "Mix",
+    "use_cache": "Use local cache",
+    "overwrite": "Overwrite existing media",
+    "cleanup": "Clean output folder before generating new media",
+    "optimize": "Optimize media storage",
+    "parallel": "Simultaneous processes"
+  },
+  "mix": {
+    "detail": "Detail",
+    "poster": "Poster"
+  },
+  "gamelist": {
+    "type": "Gamelist type",
+    "update": "Update",
+    "recreate": "Recreate",
+    "backup": "Backup",
+    "update_only": "Update",
+    "minimize": "Minimize XML",
+    "export": "Export gamelist",
+    "last_export": "Last export"
+  },
+  "preview": {
+    "title": "Preview",
+    "select_rom": "Select a ROM"
+  },
+  "common": {
+    "no": "No"
+  },
+  "api": {
+    "usage_today": "API today",
+    "usage_unknown": "Daily ScreenScraper API usage",
+    "usage_tooltip": "ScreenScraper API: {used} of {max} calls. Remaining: {remaining}.",
+    "quota_failed": "Could not check the daily ScreenScraper limit",
+    "quota_reached": "Daily ScreenScraper limit reached: {used}/{max} calls. Wait for the daily reset or use an account with a higher quota.",
+    "limit_reached_short": "Daily limit reached"
+  },
+  "scraper_start": "Start",
+  "scraper_pause": "Pause",
+  "scraper_cancel": "Cancel",
+  "scraper_scanning": "Scanning ROMs...",
+  "scraper_scraping": "Scraping...",
+  "scraper_complete": "Complete",
+  "scraper_no_roms": "No ROMs found",
+  "api_title": "ScreenScraper API",
+  "api_user": "User",
+  "api_pass": "Pass",
+  "api_test": "Test",
+  "api_ok": "Connected",
+  "api_fail": "Failed",
+  "api_config_required": "Configure API credentials first"
+}
