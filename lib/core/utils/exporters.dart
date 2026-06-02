@@ -33,28 +33,52 @@ class MetadataExporter {
               _element(
                 builder,
                 'image',
-                _media(rootFolder, rom, 'mix') ??
-                    _media(rootFolder, rom, 'box3d') ??
-                    _media(rootFolder, rom, 'box2d') ??
-                    _media(rootFolder, rom, 'screenshot'),
+                _mediaFirst(rootFolder, rom, [
+                  'mix',
+                  'box3d',
+                  'box2d',
+                  'screenshot',
+                  'title',
+                ]),
               );
               _element(
                 builder,
                 'thumbnail',
-                _media(rootFolder, rom, 'box2d') ??
-                    _media(rootFolder, rom, 'box3d') ??
-                    _media(rootFolder, rom, 'screenshot'),
+                _mediaFirst(rootFolder, rom, [
+                  'box2d',
+                  'box3d',
+                  'screenshot',
+                  'title',
+                ]),
               );
-              _element(builder, 'marquee', _media(rootFolder, rom, 'logo'));
-              _element(builder, 'video', _media(rootFolder, rom, 'video'));
+              _element(
+                builder,
+                'marquee',
+                _mediaFirst(rootFolder, rom, ['marquee', 'logo', 'wheelhd']),
+              );
+              _element(
+                builder,
+                'video',
+                _mediaFirst(rootFolder, rom, ['video', 'video_normalized']),
+              );
               _element(builder, 'manual', _media(rootFolder, rom, 'manual'));
               _element(builder, 'fanart', _media(rootFolder, rom, 'fanart'));
+              _element(builder, 'bezel', _media(rootFolder, rom, 'bezel'));
               _element(builder, 'titleshot', _media(rootFolder, rom, 'title'));
               _element(
                 builder,
                 'boxart',
-                _media(rootFolder, rom, 'box2d') ??
-                    _media(rootFolder, rom, 'box3d'),
+                _mediaFirst(rootFolder, rom, ['box2d', 'box3d']),
+              );
+              _element(
+                builder,
+                'boxback',
+                _mediaFirst(rootFolder, rom, ['box2dback', 'box3dback']),
+              );
+              _element(
+                builder,
+                'cartridge',
+                _mediaFirst(rootFolder, rom, ['cartridge', 'cartridge3d']),
               );
               _element(
                 builder,
@@ -63,8 +87,47 @@ class MetadataExporter {
               );
               _element(builder, 'mix', _media(rootFolder, rom, 'mix'));
               _element(builder, 'wheel', _media(rootFolder, rom, 'logo'));
+              _element(builder, 'wheelhd', _media(rootFolder, rom, 'wheelhd'));
               _element(builder, 'box2d', _media(rootFolder, rom, 'box2d'));
               _element(builder, 'box3d', _media(rootFolder, rom, 'box3d'));
+              _element(
+                builder,
+                'box2dback',
+                _media(rootFolder, rom, 'box2dback'),
+              );
+              _element(
+                builder,
+                'box3dback',
+                _media(rootFolder, rom, 'box3dback'),
+              );
+              _element(
+                builder,
+                'cartridge2d',
+                _media(rootFolder, rom, 'cartridge'),
+              );
+              _element(
+                builder,
+                'cartridge3d',
+                _media(rootFolder, rom, 'cartridge3d'),
+              );
+              _element(
+                builder,
+                'videonormalized',
+                _media(rootFolder, rom, 'video_normalized'),
+              );
+              _element(
+                  builder, 'steamgrid', _media(rootFolder, rom, 'steamgrid'));
+              _element(builder, 'map', _media(rootFolder, rom, 'map'));
+              for (final id in rom.localMediaPaths.keys) {
+                if (_explicitMediaIds.contains(id)) {
+                  continue;
+                }
+                _element(
+                  builder,
+                  _mediaElementName(id),
+                  _media(rootFolder, rom, id),
+                );
+              }
               _element(builder, 'releasedate', _esDate(rom.release));
               _element(builder, 'developer', rom.developer);
               _element(builder, 'publisher', rom.publisher);
@@ -172,12 +235,53 @@ class MetadataExporter {
     }
   }
 
+  static const _explicitMediaIds = <String>{
+    'mix',
+    'box3d',
+    'box2d',
+    'box2dback',
+    'box3dback',
+    'cartridge',
+    'cartridge3d',
+    'screenshot',
+    'title',
+    'marquee',
+    'logo',
+    'wheelhd',
+    'fanart',
+    'bezel',
+    'video',
+    'video_normalized',
+    'manual',
+    'steamgrid',
+    'map',
+  };
+
+  static String _mediaElementName(String id) {
+    final tag = id.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '').toLowerCase();
+    return tag.isEmpty ? 'media' : tag;
+  }
+
   static String? _media(String rootFolder, RomFile rom, String id) {
     final path = rom.localMediaPaths[id];
     if (path == null || path.isEmpty) {
       return null;
     }
     return './${_relative(rootFolder, path)}';
+  }
+
+  static String? _mediaFirst(
+    String rootFolder,
+    RomFile rom,
+    Iterable<String> ids,
+  ) {
+    for (final id in ids) {
+      final hit = _media(rootFolder, rom, id);
+      if (hit != null) {
+        return hit;
+      }
+    }
+    return null;
   }
 
   static String _gameName(RomFile rom, ExportOptions options) {

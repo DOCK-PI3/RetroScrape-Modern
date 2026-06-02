@@ -53,7 +53,37 @@ class RomFile {
     return localMediaPaths['mix'] ??
         localMediaPaths['box3d'] ??
         localMediaPaths['box2d'] ??
-        localMediaPaths['screenshot'];
+        localMediaPaths['box2dback'] ??
+        localMediaPaths['box3dback'] ??
+        localMediaPaths['cartridge3d'] ??
+        localMediaPaths['cartridge'] ??
+        localMediaPaths['box2dside'] ??
+        localMediaPaths['boxtexture'] ??
+        localMediaPaths['screenshot'] ??
+        localMediaPaths['title'] ??
+        localMediaPaths['overlay'] ??
+        localMediaPaths['marquee'] ??
+        localMediaPaths['logo'] ??
+        localMediaPaths['wheelhd'] ??
+        localMediaPaths['wheel_tarcisios'] ??
+        localMediaPaths['fanart'] ??
+        localMediaPaths['flyer'] ??
+        localMediaPaths['figurine'] ??
+        localMediaPaths['boxscan'] ??
+        localMediaPaths['supportscan'] ??
+        localMediaPaths['bezel'] ??
+        localMediaPaths['bezel43v'] ??
+        localMediaPaths['bezel43cocktail'] ??
+        localMediaPaths['bezel169v'] ??
+        localMediaPaths['bezel169cocktail'] ??
+        localMediaPaths['steamgrid'] ??
+        localMediaPaths['map'] ??
+        localMediaPaths['sstable'] ??
+        localMediaPaths['ssfronton11'] ??
+        localMediaPaths['ssfronton43'] ??
+        localMediaPaths['ssfronton169'] ??
+        localMediaPaths['ssdmd'] ??
+        localMediaPaths['sstopper'];
   }
 }
 

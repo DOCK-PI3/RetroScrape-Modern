@@ -99,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _lastExportPath;
   int _scanVersion = 0;
   ScreenScraperQuota? _apiQuota;
+  int _previewMediaIndex = 0;
 
   FrontendTarget _frontend = FrontendTarget.emulationStation;
   MixStyle _mixStyle = MixStyle.detailed;
@@ -536,10 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _createMixPlaceholder(RomFile rom) async {
-    final source = rom.localMediaPaths['box3d'] ??
-        rom.localMediaPaths['box2d'] ??
-        rom.localMediaPaths['screenshot'] ??
-        rom.localMediaPaths['logo'];
+    final source = rom.localImagePath;
     if (source == null) {
       return;
     }
@@ -836,6 +834,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String? _urlFor(String mediaId, GameMetadata metadata) {
+    final choice = MediaCatalog.maybeById(mediaId);
+    final hit = choice == null ? null : metadata.mediaUrlFor(choice.apiTypes);
+    if (hit != null) {
+      return hit;
+    }
     switch (mediaId) {
       case 'box3d':
         return metadata.boxUrl ?? metadata.box2dUrl;
@@ -856,6 +859,53 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return null;
     }
+  }
+
+  List<MapEntry<String, String>> _previewMediaEntries(RomFile rom) {
+    final ordered = <MapEntry<String, String>>[];
+    final seen = <String>{};
+    for (final id in MediaCatalog.previewPriority) {
+      final path = rom.localMediaPaths[id];
+      if (path != null && _isImageMedia(path)) {
+        ordered.add(MapEntry(id, path));
+        seen.add(id);
+      }
+    }
+    for (final entry in rom.localMediaPaths.entries) {
+      if (seen.contains(entry.key) || !_isImageMedia(entry.value)) {
+        continue;
+      }
+      ordered.add(entry);
+    }
+    return ordered;
+  }
+
+  bool _isImageMedia(String path) {
+    switch (p.extension(path).toLowerCase()) {
+      case '.png':
+      case '.jpg':
+      case '.jpeg':
+      case '.webp':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  MapEntry<String, String>? _currentPreviewMedia(RomFile rom) {
+    final media = _previewMediaEntries(rom);
+    if (media.isEmpty) {
+      return null;
+    }
+    final index = _previewMediaIndex.clamp(0, media.length - 1).toInt();
+    return media[index];
+  }
+
+  String _mediaLabel(String id) {
+    if (id == 'mix') {
+      return 'Mix';
+    }
+    return MediaCatalog.maybeById(id)?.label ?? id;
   }
 
   @override
@@ -1209,7 +1259,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       trailing: rom.localImagePath == null
                           ? null
                           : const Icon(Icons.image, color: Colors.tealAccent),
-                      onTap: () => setState(() => _selectedRom = rom),
+                      onTap: () => setState(() {
+                        _selectedRom = rom;
+                        _previewMediaIndex = 0;
+                      }),
                     );
                   },
                 ),
@@ -1446,9 +1499,57 @@ class _HomeScreenState extends State<HomeScreen> {
       _sectionTitle('preview.title'.tr()),
       if (selected == null)
         Text('preview.select_rom'.tr())
-      else
+      else ...[
+        _previewMediaNavigator(selected),
+        const SizedBox(height: 8),
         _preview(selected),
+      ],
     ]);
+  }
+
+  Widget _previewMediaNavigator(RomFile rom) {
+    final media = _previewMediaEntries(rom);
+    final hasMedia = media.isNotEmpty;
+    final currentIndex =
+        hasMedia ? _previewMediaIndex.clamp(0, media.length - 1).toInt() : 0;
+    final current = hasMedia ? media[currentIndex] : null;
+    return Row(
+      children: [
+        IconButton.outlined(
+          tooltip: 'Media anterior',
+          icon: const Icon(Icons.chevron_left),
+          onPressed: media.length <= 1
+              ? null
+              : () => setState(() {
+                    _previewMediaIndex =
+                        (_previewMediaIndex - 1 + media.length) % media.length;
+                  }),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            current == null
+                ? 'Sin media visual descargada'
+                : '${_mediaLabel(current.key)}  ${currentIndex + 1}/${media.length}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.outlined(
+          tooltip: 'Media siguiente',
+          icon: const Icon(Icons.chevron_right),
+          onPressed: media.length <= 1
+              ? null
+              : () => setState(() {
+                    _previewMediaIndex =
+                        (_previewMediaIndex + 1) % media.length;
+                  }),
+        ),
+      ],
+    );
   }
 
   Widget _systemsSummary() {
@@ -1537,7 +1638,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _preview(RomFile rom) {
-    final image = rom.localImagePath;
+    final previewMedia = _currentPreviewMedia(rom);
+    final image = previewMedia?.value ?? rom.localImagePath;
     final title = _cleanDisplayTitle(rom.title ?? rom.name, fallback: rom.name);
     return Card(
       child: Padding(

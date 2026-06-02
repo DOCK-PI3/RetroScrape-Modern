@@ -450,7 +450,7 @@ class SystemCatalog {
       id: 142,
       name: 'Neo Geo AES / MVS',
       folderNames: ['neogeo', 'neogeo-aes', 'neogeo-mvs'],
-      extensions: ['.zip', '.7z'],
+      extensions: ['.zip', '.7z', '.neo'],
     ),
     SystemProfile(
       id: 171,

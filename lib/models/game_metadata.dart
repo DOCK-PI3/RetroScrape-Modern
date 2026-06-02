@@ -19,6 +19,7 @@ class GameMetadata {
     this.fanartUrl,
     this.videoUrl,
     this.manualUrl,
+    this.mediaUrls = const {},
   });
 
   final int id;
@@ -40,6 +41,18 @@ class GameMetadata {
   final String? fanartUrl;
   final String? videoUrl;
   final String? manualUrl;
+  final Map<String, String> mediaUrls;
+
+  String? mediaUrlFor(Iterable<String> types) {
+    for (final type in types) {
+      final normalized = _normalizeMediaType(type);
+      final hit = normalized == null ? null : mediaUrls[normalized];
+      if (hit != null) {
+        return hit;
+      }
+    }
+    return null;
+  }
 
   factory GameMetadata.fromApi(Map<String, dynamic> game) {
     final romName = _romDisplayName(game['roms']) ??
@@ -69,33 +82,39 @@ class GameMetadata {
     String? fanartUrl;
     String? videoUrl;
     String? manualUrl;
+    final mediaUrls = <String, String>{};
 
     void assignMedia(String? type, String? url) {
-      if (type == null || url == null) return;
-      if (boxUrl == null && (type == 'box-3d' || type == 'box3d')) {
+      final normalized = _normalizeMediaType(type);
+      if (normalized == null || url == null) return;
+      mediaUrls.putIfAbsent(normalized, () => url);
+      if (boxUrl == null && _matchesMedia(normalized, ['box-3d', 'box3d'])) {
         boxUrl = url;
       }
-      if (box2dUrl == null && (type == 'box-2d' || type == 'box2dfront')) {
+      if (box2dUrl == null &&
+          _matchesMedia(normalized, ['box-2d', 'box2dfront', 'box2d'])) {
         box2dUrl = url;
       }
-      if (screenshotUrl == null && (type == 'ss' || type == 'screenshot')) {
+      if (screenshotUrl == null &&
+          _matchesMedia(normalized, ['ss', 'screenshot'])) {
         screenshotUrl = url;
       }
       if (titleScreenshotUrl == null &&
-          (type == 'sstitle' || type == 'ss-title')) {
+          _matchesMedia(normalized, ['sstitle', 'ss-title', 'titlescreen'])) {
         titleScreenshotUrl = url;
       }
       if (logoUrl == null &&
-          (type == 'wheel' || type == 'marquee' || type == 'logo')) {
+          _matchesMedia(normalized, ['wheel', 'marquee', 'logo'])) {
         logoUrl = url;
       }
-      if (fanartUrl == null && (type == 'fanart' || type == 'bezel')) {
+      if (fanartUrl == null && _matchesMedia(normalized, ['fanart'])) {
         fanartUrl = url;
       }
-      if (videoUrl == null && type == 'video') {
+      if (videoUrl == null && _matchesMedia(normalized, ['video'])) {
         videoUrl = url;
       }
-      if (manualUrl == null && (type == 'manuel' || type == 'manual')) {
+      if (manualUrl == null &&
+          _matchesMedia(normalized, ['manuel', 'manual'])) {
         manualUrl = url;
       }
     }
@@ -119,6 +138,37 @@ class GameMetadata {
       for (final entry in medias.entries) {
         final key = entry.key.toString().toLowerCase();
         final url = _urlFromMediaValue(entry.value);
+        assignMedia(key, url);
+        if (key.contains('box2dback') || key.contains('box-2d-back')) {
+          assignMedia('box-2d-back', url);
+        }
+        if (key.contains('box3dback') || key.contains('box-3d-back')) {
+          assignMedia('box-3d-back', url);
+        }
+        if (key.contains('support2d') || key.contains('support-2d')) {
+          assignMedia('support-2d', url);
+        }
+        if (key.contains('support3d') || key.contains('support-3d')) {
+          assignMedia('support-3d', url);
+        }
+        if (key.contains('supporttexture') || key.contains('support-texture')) {
+          assignMedia('support-texture', url);
+        }
+        if (key.contains('supportscan') || key.contains('support-scan')) {
+          assignMedia('support-scan', url);
+        }
+        if (key.contains('box2dside') || key.contains('box-2d-side')) {
+          assignMedia('box-2d-side', url);
+        }
+        if (key.contains('boxtexture') || key.contains('box-texture')) {
+          assignMedia('box-texture', url);
+        }
+        if (key.contains('boxscan') || key.contains('box-scan')) {
+          assignMedia('box-scan', url);
+        }
+        if (key.contains('screenmarquee') || key.contains('screenmarque')) {
+          assignMedia('screenmarquee', url);
+        }
         if (key.contains('box3d') || key.contains('box-3d')) {
           assignMedia('box-3d', url);
         }
@@ -172,7 +222,26 @@ class GameMetadata {
       fanartUrl: fanartUrl,
       videoUrl: videoUrl,
       manualUrl: manualUrl,
+      mediaUrls: mediaUrls,
     );
+  }
+
+  static String? _normalizeMediaType(String? value) {
+    final text = value?.trim().toLowerCase();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+    return text
+        .replaceAll('_', '-')
+        .replaceAll(' ', '-')
+        .replaceAll(RegExp(r'-+'), '-');
+  }
+
+  static bool _matchesMedia(String normalized, Iterable<String> aliases) {
+    return aliases
+        .map(_normalizeMediaType)
+        .whereType<String>()
+        .contains(normalized);
   }
 
   static String? _fromRegionalMap(dynamic value, String prefix) {
