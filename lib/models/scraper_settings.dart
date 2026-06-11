@@ -106,7 +106,7 @@ class MediaCatalog {
       label: 'Logo / wheel',
       folder: 'logos',
       extension: 'png',
-      apiTypes: ['wheel', 'logo', 'marquee'],
+      apiTypes: ['wheel', 'logo'],
     ),
     MediaChoice(
       id: 'wheelhd',

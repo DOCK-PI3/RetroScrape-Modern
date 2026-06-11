@@ -103,8 +103,7 @@ class GameMetadata {
           _matchesMedia(normalized, ['sstitle', 'ss-title', 'titlescreen'])) {
         titleScreenshotUrl = url;
       }
-      if (logoUrl == null &&
-          _matchesMedia(normalized, ['wheel', 'marquee', 'logo'])) {
+      if (logoUrl == null && _matchesMedia(normalized, ['wheel', 'logo'])) {
         logoUrl = url;
       }
       if (fanartUrl == null && _matchesMedia(normalized, ['fanart'])) {
@@ -181,9 +180,7 @@ class GameMetadata {
         if (key.contains('sstitle') || key.contains('title')) {
           assignMedia('sstitle', url);
         }
-        if (key.contains('wheel') ||
-            key.contains('logo') ||
-            key.contains('marquee')) {
+        if (key.contains('wheel') || key.contains('logo')) {
           assignMedia('wheel', url);
         }
         if (key.contains('fanart')) {
