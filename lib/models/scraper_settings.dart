@@ -1,6 +1,6 @@
 enum FrontendTarget { emulationStation, launchBox }
 
-enum MixStyle { none, detailed, poster }
+enum MixStyle { none, mixV1, mixV2 }
 
 enum TextCaseMode { asIs, lower, upper }
 

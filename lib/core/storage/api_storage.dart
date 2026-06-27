@@ -26,10 +26,7 @@ class ApiStorage {
   static const _cleanupMediaKey = 'settings.media.cleanup';
   static const _optimizeMediaKey = 'settings.media.optimize';
 
-  Future<void> save({
-    required String user,
-    required String pass,
-  }) async {
+  Future<void> save({required String user, required String pass}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_devIdKey);
     await prefs.remove(_devPassKey);
@@ -125,7 +122,7 @@ class ApiStorage {
       'frontend': prefs.getString(_frontendKey) ?? 'emulationStation',
       'media':
           prefs.getStringList(_mediaKey) ?? ['box3d', 'screenshot', 'logo'],
-      'mix': prefs.getString(_mixKey) ?? 'detailed',
+      'mix': prefs.getString(_mixKey) ?? 'mixV1',
       'cache': prefs.getBool(_cacheKey) ?? true,
       'overwrite': prefs.getBool(_overwriteKey) ?? false,
       'threads': prefs.getInt(_threadsKey) ?? 2,

@@ -69,8 +69,8 @@
     "parallel": "Simultaneous processes"
   },
   "mix": {
-    "detail": "Detail",
-    "poster": "Poster"
+    "v1": "Mix V1",
+    "v2": "Mix V2"
   },
   "gamelist": {
     "type": "Gamelist type",

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'core/api/screenscraper_service.dart';
 import 'core/storage/api_storage.dart';
 import 'core/utils/exporters.dart';
+import 'core/utils/mix_composer.dart';
 import 'core/utils/rom_scanner.dart';
 import 'models/game_metadata.dart';
 import 'models/rom.dart';
@@ -102,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _previewMediaIndex = 0;
 
   FrontendTarget _frontend = FrontendTarget.emulationStation;
-  MixStyle _mixStyle = MixStyle.detailed;
+  MixStyle _mixStyle = MixStyle.mixV1;
   Set<String> _selectedMedia = {'box3d', 'screenshot', 'logo'};
   bool _useCache = true;
   bool _overwriteMedia = false;
@@ -170,10 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _userController.text = credentials['user'] ?? '';
     _passController.text = credentials['pass'] ?? '';
-    _service.configure(
-      user: _userController.text,
-      pass: _passController.text,
-    );
+    _service.configure(user: _userController.text, pass: _passController.text);
 
     setState(() {
       _romFolder = settings['romFolder'] as String;
@@ -232,14 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _saveCredentials({bool showMessage = true}) async {
-    await _storage.save(
-      user: _userController.text,
-      pass: _passController.text,
-    );
-    _service.configure(
-      user: _userController.text,
-      pass: _passController.text,
-    );
+    await _storage.save(user: _userController.text, pass: _passController.text);
+    _service.configure(user: _userController.text, pass: _passController.text);
     if (mounted && showMessage) {
       _snack('Credenciales guardadas');
     }
@@ -491,22 +483,31 @@ class _HomeScreenState extends State<HomeScreen> {
     _applyMetadata(rom, metadata);
     final downloaded = await _downloadSelectedMedia(rom, metadata);
 
+    var mixCreated = true;
     if (_mixStyle != MixStyle.none) {
-      await _createMixPlaceholder(rom);
+      mixCreated = await _createMix(rom);
     }
 
     setState(() {
       rom.scraped = true;
       rom.status = RomStatus.done;
-      rom.message = downloaded == 0
-          ? 'Metadatos OK, sin medios descargados'
-          : 'Descargados $downloaded medios';
+      if (!mixCreated) {
+        rom.message = 'Faltan medios para crear ${_mixStyleLabel(_mixStyle)}';
+      } else {
+        rom.message = downloaded == 0
+            ? 'Metadatos OK, sin medios descargados'
+            : 'Descargados $downloaded medios';
+      }
     });
   }
 
   Future<int> _downloadSelectedMedia(RomFile rom, GameMetadata metadata) async {
     var downloaded = 0;
-    for (final mediaId in _selectedMedia) {
+    final mediaToDownload = <String>{
+      ..._selectedMedia,
+      ..._requiredMediaForMix(_mixStyle),
+    };
+    for (final mediaId in mediaToDownload) {
       final url = _urlFor(mediaId, metadata);
       if (url == null) {
         continue;
@@ -536,18 +537,70 @@ class _HomeScreenState extends State<HomeScreen> {
     return downloaded;
   }
 
-  Future<void> _createMixPlaceholder(RomFile rom) async {
-    final source = rom.localImagePath;
-    if (source == null) {
-      return;
+  Set<String> _requiredMediaForMix(MixStyle style) {
+    switch (style) {
+      case MixStyle.none:
+        return const {};
+      case MixStyle.mixV1:
+        return const {'screenshot', 'logo', 'box3d'};
+      case MixStyle.mixV2:
+        return const {'title', 'logo', 'cartridge', 'box2d'};
     }
+  }
+
+  Future<bool> _createMix(RomFile rom) async {
+    final paths = switch (_mixStyle) {
+      MixStyle.none => const <String?>[],
+      MixStyle.mixV1 => <String?>[
+          _firstMediaPath(rom, const ['screenshot', 'title']),
+          _firstMediaPath(rom, const ['logo', 'wheelhd', 'marquee']),
+          _firstMediaPath(rom, const ['box3d', 'box2d']),
+        ],
+      MixStyle.mixV2 => <String?>[
+          _firstMediaPath(rom, const ['title', 'screenshot']),
+          _firstMediaPath(rom, const ['logo', 'wheelhd', 'marquee']),
+          _firstMediaPath(rom, const ['cartridge', 'cartridge3d']),
+          _firstMediaPath(rom, const ['box2d', 'box3d']),
+        ],
+    };
+
+    if (paths.isEmpty || paths.any((path) => path == null)) {
+      return false;
+    }
+
     final outDir = Directory(p.join(_systemRootForRom(rom), 'media', 'mix'));
     final outPath = p.join(outDir.path, '${_safeFileName(rom.name)}.png');
-    await outDir.create(recursive: true);
-    if (!File(outPath).existsSync() || _overwriteMedia) {
-      await File(source).copy(outPath);
+    final created = switch (_mixStyle) {
+      MixStyle.none => false,
+      MixStyle.mixV1 => await MixComposer.createV1(
+          screenshotPath: paths[0]!,
+          logoPath: paths[1]!,
+          box3dPath: paths[2]!,
+          outputPath: outPath,
+        ),
+      MixStyle.mixV2 => await MixComposer.createV2(
+          titleScreenshotPath: paths[0]!,
+          logoPath: paths[1]!,
+          cartridgePath: paths[2]!,
+          box2dPath: paths[3]!,
+          outputPath: outPath,
+        ),
+    };
+    if (!created) {
+      return false;
     }
     rom.localMediaPaths = {...rom.localMediaPaths, 'mix': outPath};
+    return true;
+  }
+
+  String? _firstMediaPath(RomFile rom, Iterable<String> ids) {
+    for (final id in ids) {
+      final path = rom.localMediaPaths[id];
+      if (path != null && File(path).existsSync()) {
+        return path;
+      }
+    }
+    return null;
   }
 
   Future<void> _exportMetadata() async {
@@ -713,9 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 TextField(
                   controller: _userController,
-                  decoration: InputDecoration(
-                    labelText: 'settings.user'.tr(),
-                  ),
+                  decoration: InputDecoration(labelText: 'settings.user'.tr()),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -920,18 +971,9 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.language),
             onSelected: context.setLocale,
             itemBuilder: (menuContext) => const [
-              PopupMenuItem(
-                value: Locale('es', 'ES'),
-                child: Text('Español'),
-              ),
-              PopupMenuItem(
-                value: Locale('en', 'US'),
-                child: Text('English'),
-              ),
-              PopupMenuItem(
-                value: Locale('fr', 'FR'),
-                child: Text('Français'),
-              ),
+              PopupMenuItem(value: Locale('es', 'ES'), child: Text('Español')),
+              PopupMenuItem(value: Locale('en', 'US'), child: Text('English')),
+              PopupMenuItem(value: Locale('fr', 'FR'), child: Text('Français')),
             ],
           ),
           Tooltip(
@@ -1062,10 +1104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Text(
                     'api.usage_today'.tr(),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white60,
-                    ),
+                    style: const TextStyle(fontSize: 11, color: Colors.white60),
                   ),
                 ],
               ),
@@ -1279,15 +1318,18 @@ class _HomeScreenState extends State<HomeScreen> {
           TabBar(
             tabs: [
               Tab(
-                  icon: const Icon(Icons.badge_outlined),
-                  text: 'tab.metadata'.tr()),
+                icon: const Icon(Icons.badge_outlined),
+                text: 'tab.metadata'.tr(),
+              ),
               Tab(
-                  icon: const Icon(Icons.image_outlined),
-                  text: 'tab.media'.tr()),
+                icon: const Icon(Icons.image_outlined),
+                text: 'tab.media'.tr(),
+              ),
               Tab(icon: const Icon(Icons.list_alt), text: 'tab.gamelist'.tr()),
               Tab(
-                  icon: const Icon(Icons.visibility_outlined),
-                  text: 'tab.preview'.tr()),
+                icon: const Icon(Icons.visibility_outlined),
+                text: 'tab.preview'.tr(),
+              ),
             ],
           ),
           Expanded(
@@ -1306,23 +1348,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _panelList(List<Widget> children) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: children,
-    );
+    return ListView(padding: const EdgeInsets.all(16), children: children);
   }
 
   Widget _metadataOptionsPanel() {
     return _panelList([
       _sectionTitle('metadata.text_case'.tr()),
-      _caseSelector('metadata.name'.tr(), _nameCase,
-          (value) => setState(() => _nameCase = value)),
+      _caseSelector(
+        'metadata.name'.tr(),
+        _nameCase,
+        (value) => setState(() => _nameCase = value),
+      ),
       const SizedBox(height: 8),
-      _caseSelector('metadata.description'.tr(), _descriptionCase,
-          (value) => setState(() => _descriptionCase = value)),
+      _caseSelector(
+        'metadata.description'.tr(),
+        _descriptionCase,
+        (value) => setState(() => _descriptionCase = value),
+      ),
       const SizedBox(height: 8),
-      _caseSelector('metadata.genre'.tr(), _genreCase,
-          (value) => setState(() => _genreCase = value)),
+      _caseSelector(
+        'metadata.genre'.tr(),
+        _genreCase,
+        (value) => setState(() => _genreCase = value),
+      ),
       const SizedBox(height: 16),
       _settingsSwitch(
         'metadata.move_articles'.tr(),
@@ -1385,17 +1433,20 @@ class _HomeScreenState extends State<HomeScreen> {
       SegmentedButton<MixStyle>(
         segments: [
           ButtonSegment(
-              value: MixStyle.none,
-              icon: const Icon(Icons.hide_image),
-              label: Text('common.no'.tr())),
+            value: MixStyle.none,
+            icon: const Icon(Icons.hide_image),
+            label: Text('common.no'.tr()),
+          ),
           ButtonSegment(
-              value: MixStyle.detailed,
-              icon: const Icon(Icons.dashboard_customize),
-              label: Text('mix.detail'.tr())),
+            value: MixStyle.mixV1,
+            icon: const Icon(Icons.dashboard_customize),
+            label: Text('mix.v1'.tr()),
+          ),
           ButtonSegment(
-              value: MixStyle.poster,
-              icon: const Icon(Icons.photo_size_select_actual),
-              label: Text('mix.poster'.tr())),
+            value: MixStyle.mixV2,
+            icon: const Icon(Icons.layers),
+            label: Text('mix.v2'.tr()),
+          ),
         ],
         selected: {_mixStyle},
         onSelectionChanged: (value) {
@@ -1404,14 +1455,26 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       const SizedBox(height: 12),
-      _settingsSwitch('media.use_cache'.tr(), _useCache,
-          (value) => setState(() => _useCache = value)),
-      _settingsSwitch('media.overwrite'.tr(), _overwriteMedia,
-          (value) => setState(() => _overwriteMedia = value)),
-      _settingsSwitch('media.cleanup'.tr(), _cleanupMedia,
-          (value) => setState(() => _cleanupMedia = value)),
-      _settingsSwitch('media.optimize'.tr(), _optimizeMedia,
-          (value) => setState(() => _optimizeMedia = value)),
+      _settingsSwitch(
+        'media.use_cache'.tr(),
+        _useCache,
+        (value) => setState(() => _useCache = value),
+      ),
+      _settingsSwitch(
+        'media.overwrite'.tr(),
+        _overwriteMedia,
+        (value) => setState(() => _overwriteMedia = value),
+      ),
+      _settingsSwitch(
+        'media.cleanup'.tr(),
+        _cleanupMedia,
+        (value) => setState(() => _cleanupMedia = value),
+      ),
+      _settingsSwitch(
+        'media.optimize'.tr(),
+        _optimizeMedia,
+        (value) => setState(() => _optimizeMedia = value),
+      ),
       const SizedBox(height: 12),
       ListTile(
         contentPadding: EdgeInsets.zero,
@@ -1440,13 +1503,15 @@ class _HomeScreenState extends State<HomeScreen> {
       SegmentedButton<FrontendTarget>(
         segments: const [
           ButtonSegment(
-              value: FrontendTarget.emulationStation,
-              icon: Icon(Icons.view_list),
-              label: Text('ES')),
+            value: FrontendTarget.emulationStation,
+            icon: Icon(Icons.view_list),
+            label: Text('ES'),
+          ),
           ButtonSegment(
-              value: FrontendTarget.launchBox,
-              icon: Icon(Icons.grid_view),
-              label: Text('LaunchBox')),
+            value: FrontendTarget.launchBox,
+            icon: Icon(Icons.grid_view),
+            label: Text('LaunchBox'),
+          ),
         ],
         selected: {_frontend},
         onSelectionChanged: (value) {
@@ -1459,17 +1524,20 @@ class _HomeScreenState extends State<HomeScreen> {
       SegmentedButton<GamelistUpdateMode>(
         segments: [
           ButtonSegment(
-              value: GamelistUpdateMode.overwrite,
-              icon: const Icon(Icons.edit_document),
-              label: Text('gamelist.recreate'.tr())),
+            value: GamelistUpdateMode.overwrite,
+            icon: const Icon(Icons.edit_document),
+            label: Text('gamelist.recreate'.tr()),
+          ),
           ButtonSegment(
-              value: GamelistUpdateMode.backupAndUpdate,
-              icon: const Icon(Icons.backup),
-              label: Text('gamelist.backup'.tr())),
+            value: GamelistUpdateMode.backupAndUpdate,
+            icon: const Icon(Icons.backup),
+            label: Text('gamelist.backup'.tr()),
+          ),
           ButtonSegment(
-              value: GamelistUpdateMode.updateOnly,
-              icon: const Icon(Icons.update),
-              label: Text('gamelist.update_only'.tr())),
+            value: GamelistUpdateMode.updateOnly,
+            icon: const Icon(Icons.update),
+            label: Text('gamelist.update_only'.tr()),
+          ),
         ],
         selected: {_gamelistMode},
         onSelectionChanged: (value) {
@@ -1478,8 +1546,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       const SizedBox(height: 12),
-      _settingsSwitch('gamelist.minimize'.tr(), _minimizeGamelist,
-          (value) => setState(() => _minimizeGamelist = value)),
+      _settingsSwitch(
+        'gamelist.minimize'.tr(),
+        _minimizeGamelist,
+        (value) => setState(() => _minimizeGamelist = value),
+      ),
       const SizedBox(height: 12),
       OutlinedButton.icon(
         onPressed: _doneCount == 0 || _isScraping ? null : _exportMetadata,
@@ -1605,11 +1676,17 @@ class _HomeScreenState extends State<HomeScreen> {
         SegmentedButton<TextCaseMode>(
           segments: [
             ButtonSegment(
-                value: TextCaseMode.asIs, label: Text('case.as_is'.tr())),
+              value: TextCaseMode.asIs,
+              label: Text('case.as_is'.tr()),
+            ),
             ButtonSegment(
-                value: TextCaseMode.lower, label: Text('case.lower'.tr())),
+              value: TextCaseMode.lower,
+              label: Text('case.lower'.tr()),
+            ),
             ButtonSegment(
-                value: TextCaseMode.upper, label: Text('case.upper'.tr())),
+              value: TextCaseMode.upper,
+              label: Text('case.upper'.tr()),
+            ),
           ],
           selected: {value},
           onSelectionChanged: (selection) {
@@ -1932,10 +2009,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   MixStyle _parseMix(String value) {
+    if (value == 'detailed') {
+      return MixStyle.mixV1;
+    }
+    if (value == 'poster') {
+      return MixStyle.mixV2;
+    }
     return MixStyle.values.firstWhere(
       (mix) => mix.name == value,
-      orElse: () => MixStyle.detailed,
+      orElse: () => MixStyle.mixV1,
     );
+  }
+
+  String _mixStyleLabel(MixStyle style) {
+    switch (style) {
+      case MixStyle.none:
+        return 'Mix';
+      case MixStyle.mixV1:
+        return 'Mix V1';
+      case MixStyle.mixV2:
+        return 'Mix V2';
+    }
   }
 
   TextCaseMode _parseTextCase(String value) {
